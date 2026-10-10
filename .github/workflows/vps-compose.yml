@@ -1,0 +1,43 @@
+name: VPS Compose safety check
+
+on:
+  pull_request:
+    paths:
+      - "deploy/docker/docker-compose.vps.yml"
+      - "deploy/docker/README-VPS.md"
+      - ".github/workflows/vps-compose.yml"
+  push:
+    paths:
+      - "deploy/docker/docker-compose.vps.yml"
+      - ".github/workflows/vps-compose.yml"
+
+jobs:
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose syntax and private network exposure
+        env:
+          OPENJARVIS_API_KEY: ci-dummy-token-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f deploy/docker/docker-compose.vps.yml config --quiet
+          docker compose -f deploy/docker/docker-compose.vps.yml config --format json > /tmp/openjarvis-vps.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/openjarvis-vps.json", encoding="utf-8") as f:
+              data = json.load(f)
+          services = data["services"]
+          assert services["jarvis"]["ports"] == [{
+              "mode": "ingress", "target": 8000, "published": "8000",
+              "protocol": "tcp", "host_ip": "127.0.0.1",
+          }], "OpenJarvis must expose exactly one loopback-only port"
+          assert not services["ollama"].get("ports"), "Ollama must not publish a port"
+          assert services["jarvis"]["environment"]["OPENJARVIS_API_KEY"], "Missing auth"
+          assert any(
+              volume.get("target") == "/home/openjarvis"
+              for volume in services["jarvis"].get("volumes", [])
+          ), "Missing persistent OpenJarvis state volume"
+          print("VPS networking and volume safety checks passed")
+          PY
