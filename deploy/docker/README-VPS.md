@@ -21,6 +21,27 @@ A source build compiles the Rust extension and builds the React frontend, so
 allow substantial disk/RAM/headroom. Do not copy an existing OpenJarvis .env,
 API key, token or other credentials into Git.
 
+## Fast path — fresh Ubuntu 24.04 VPS
+
+First create the VPS with SSH key access and a firewall allowing only SSH.
+Then log in to the VPS and run:
+
+```bash
+git clone https://github.com/Bruinsweb/OpenJarvis.git
+cd OpenJarvis
+git switch feature/secure-vps-deployment
+bash deploy/docker/bootstrap-vps.sh
+```
+
+The bootstrap installs official Docker Engine / Compose if needed, writes a
+new `deploy/docker/.env` secret **locally on the VPS only**, builds the
+existing upstream OpenJarvis code, pulls `qwen3.5:2b`, and checks `/health`.
+It does **not** configure host firewalls, SSH hardening, backups or remote
+access. Review the script before running it.
+
+The following manual instructions are an alternative if you prefer to control
+individual steps.
+
 ## 1. Clone the fork and create a local key
 
 ```bash
