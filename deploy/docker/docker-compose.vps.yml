@@ -1,0 +1,48 @@
+# VPS-only Compose variant of the upstream deployment.
+# Start from repository root:
+#   docker compose --env-file deploy/docker/.env -f deploy/docker/docker-compose.vps.yml up -d --build
+#
+# SECURITY: binds the OpenJarvis UI/API to the VPS loopback interface only.
+# Connect with an SSH tunnel or a properly configured private VPN.
+services:
+  jarvis:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000", "--engine", "ollama", "--model", "qwen3.5:2b", "--agent", "simple"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      OPENJARVIS_ENGINE_DEFAULT: ollama
+      OLLAMA_HOST: http://ollama:11434
+      OPENJARVIS_HOME: /home/openjarvis/.openjarvis
+      OPENJARVIS_API_KEY: ${OPENJARVIS_API_KEY:?Set OPENJARVIS_API_KEY in deploy/docker/.env before startup}
+    volumes:
+      - jarvis-state:/home/openjarvis/.openjarvis
+    depends_on:
+      ollama:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  ollama:
+    # Keep the same version/digest as upstream deploy/docker/docker-compose.yml.
+    image: ollama/ollama:0.30.10@sha256:bfc9c6d53cc6989aa5131a6fde6b162b2802d4d337657f3253b5f69579bddeee
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    # No published ports: reachable only by OpenJarvis on the Docker network.
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  jarvis-state:
+  ollama-models:
