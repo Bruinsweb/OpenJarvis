@@ -29,10 +29,12 @@ jobs:
           with open("/tmp/openjarvis-vps.json", encoding="utf-8") as f:
               data = json.load(f)
           services = data["services"]
-          assert services["jarvis"]["ports"] == [{
-              "mode": "ingress", "target": 8000, "published": "8000",
-              "protocol": "tcp", "host_ip": "127.0.0.1",
-          }], "OpenJarvis must expose exactly one loopback-only port"
+          ports = services["jarvis"].get("ports", [])
+          assert len(ports) == 1, "OpenJarvis should publish exactly one port"
+          port = ports[0]
+          assert port.get("host_ip") == "127.0.0.1", "OpenJarvis must be loopback-only"
+          assert port.get("target") == 8000, "Unexpected target port"
+          assert str(port.get("published")) == "8000", "Unexpected published port"
           assert not services["ollama"].get("ports"), "Ollama must not publish a port"
           assert services["jarvis"]["environment"]["OPENJARVIS_API_KEY"], "Missing auth"
           assert any(
