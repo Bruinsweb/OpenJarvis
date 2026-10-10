@@ -6,6 +6,7 @@ on:
       - "deploy/docker/docker-compose.vps.yml"
       - "deploy/docker/README-VPS.md"
       - ".github/workflows/vps-compose.yml"
+      - "deploy/docker/bootstrap-vps.sh"
   push:
     paths:
       - "deploy/docker/docker-compose.vps.yml"
@@ -22,6 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash -n deploy/docker/bootstrap-vps.sh
           docker compose -f deploy/docker/docker-compose.vps.yml config --quiet
           docker compose -f deploy/docker/docker-compose.vps.yml config --format json > /tmp/openjarvis-vps.json
           python3 - <<'PY'
