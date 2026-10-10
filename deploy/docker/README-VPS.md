@@ -25,7 +25,10 @@ API key, token or other credentials into Git.
 
 ```bash
 git clone https://github.com/Bruinsweb/OpenJarvis.git
-cd OpenJarvis/deploy/docker
+cd OpenJarvis
+# Until PR #1 is reviewed and merged, use the deployment branch:
+git switch feature/secure-vps-deployment
+cd deploy/docker
 umask 077
 printf 'OPENJARVIS_API_KEY=oj_sk_%s\nCOMPOSE_PROJECT_NAME=openjarvis\n' "$(openssl rand -hex 32)" > .env
 chmod 600 .env
@@ -58,8 +61,11 @@ docker compose -f docker-compose.vps.yml logs --tail=80 jarvis
 
 Model names/availability are controlled by Ollama; if this tag is unavailable,
 choose a compatible Ollama model and adjust `--model` in the VPS Compose file
-before restarting the app. A healthy HTTP endpoint only confirms that the web
-server runs: it does **not** prove the model or agent workflow works end-to-end.
+before restarting the app. The /health endpoint reports server/engine readiness. It does **not** prove
+that chat, tool approvals or autonomous agent runs work end-to-end.
+Docker's healthcheck records health status but an unhealthy container is
+**not** automatically restarted by Docker Compose; configure external
+monitoring/alerts and test recovery.
 
 ## 4. Open JARVIS privately from a laptop
 
@@ -127,3 +133,14 @@ images and API-key scopes should be updated deliberately.
 3. Individual GitHub, Gmail and calendar integrations using least privilege.
 4. Durable scheduled jobs and logs; monitoring and backups.
 5. A polished multi-agent JARVIS 4.0 dashboard and safe worker isolation.
+
+### Scheduler caveat
+
+The managed-agent scheduler initialized by `jarvis serve` (with the default
+`agent_manager.enabled = true`) can execute configured cron/interval agents.
+Before relying on it, create a harmless scheduled agent and verify a real
+run and audit log. The **separate** command `jarvis scheduler start` currently
+constructs `TaskScheduler(store)` without an execution system in the
+upstream CLI, so it logs **dry runs** rather than executing model requests.
+Do not rely on that command for autonomous work without patching and testing
+it. The VPS deployment intentionally does not add a second scheduler process.
